@@ -75,9 +75,9 @@ function formatResponse(intro, body) {
   return `${preamble} ${intro} ${qualifier}:\n\n${body}\n\n${spiritLabel} ${animal}`;
 }
 
-function formatLocationResponse(request) {
+function getLocationData(request) {
   if (!request.cf) {
-    return "Unable to retrieve location data";
+    return null;
   }
   const { country, region, city, latitude, longitude, postalCode, colo } =
     request.cf;
@@ -85,21 +85,20 @@ function formatLocationResponse(request) {
   // Handle missing fields gracefully.
   const safeValue = (val) => val ?? "unknown";
 
-  return formatResponse(
-    "your location is",
-    `country: ${safeValue(country)}
-region: ${safeValue(region)}
-city: ${safeValue(city)}
-latitude: ${safeValue(latitude)}
-longitude: ${safeValue(longitude)}
-postcode: ${safeValue(postalCode)}
-cf colo: ${safeValue(colo)}`,
-  );
+  return {
+    country: safeValue(country),
+    region: safeValue(region),
+    city: safeValue(city),
+    latitude: safeValue(latitude),
+    longitude: safeValue(longitude),
+    postcode: safeValue(postalCode),
+    colo: safeValue(colo),
+  };
 }
 
-function formatTimeResponse(request) {
+function getTimeData(request) {
   if (!request.cf) {
-    return "Unable to retrieve timezone data";
+    return null;
   }
   const { timezone, colo } = request.cf;
 
@@ -115,12 +114,64 @@ function formatTimeResponse(request) {
     }
   }
 
+  return {
+    localTime,
+    timezone: safeValue(timezone),
+    utcOffset: getUtcOffset(timezone),
+    colo: safeValue(colo),
+  };
+}
+
+function formatLocationResponse(request, asJson = false) {
+  const data = getLocationData(request);
+  if (!data) {
+    return asJson
+      ? JSON.stringify({ error: "Unable to retrieve location data" })
+      : "Unable to retrieve location data";
+  }
+
+  if (asJson) {
+    return JSON.stringify({
+      preamble: pick(PREAMBLES) + " your location is " + pick(QUALIFIERS),
+      data,
+      spiritAnimal: pick(SPIRIT_ANIMAL_LABELS) + ": " + pick(ANIMAL_EMOJIS),
+    });
+  }
+
+  return formatResponse(
+    "your location is",
+    `country: ${data.country}
+region: ${data.region}
+city: ${data.city}
+latitude: ${data.latitude}
+longitude: ${data.longitude}
+postcode: ${data.postcode}
+cf colo: ${data.colo}`,
+  );
+}
+
+function formatTimeResponse(request, asJson = false) {
+  const data = getTimeData(request);
+  if (!data) {
+    return asJson
+      ? JSON.stringify({ error: "Unable to retrieve timezone data" })
+      : "Unable to retrieve timezone data";
+  }
+
+  if (asJson) {
+    return JSON.stringify({
+      preamble: pick(PREAMBLES) + " your time is " + pick(QUALIFIERS),
+      data,
+      spiritAnimal: pick(SPIRIT_ANIMAL_LABELS) + ": " + pick(ANIMAL_EMOJIS),
+    });
+  }
+
   return formatResponse(
     "your time is",
-    `local time: ${localTime}
-timezone: ${safeValue(timezone)}
-utc offset: ${getUtcOffset(timezone)}
-cf colo: ${safeValue(colo)}`,
+    `local time: ${data.localTime}
+timezone: ${data.timezone}
+utc offset: ${data.utcOffset}
+cf colo: ${data.colo}`,
   );
 }
 
@@ -158,13 +209,27 @@ function formatRootPage() {
 </html>`;
 }
 
+function wantsJson(request) {
+  const accept = request.headers.get("Accept") || "";
+  return accept.includes("application/json");
+}
+
 const ROUTES = {
   "/": () => ({ body: formatRootPage(), type: "text/html" }),
-  "/where": (req) => ({
-    body: formatLocationResponse(req),
-    type: "text/plain",
-  }),
-  "/when": (req) => ({ body: formatTimeResponse(req), type: "text/plain" }),
+  "/where": (req) => {
+    const asJson = wantsJson(req);
+    return {
+      body: formatLocationResponse(req, asJson),
+      type: asJson ? "application/json" : "text/plain",
+    };
+  },
+  "/when": (req) => {
+    const asJson = wantsJson(req);
+    return {
+      body: formatTimeResponse(req, asJson),
+      type: asJson ? "application/json" : "text/plain",
+    };
+  },
 };
 
 export default {
@@ -191,7 +256,10 @@ export {
   pick,
   getUtcOffset,
   formatResponse,
+  getLocationData,
+  getTimeData,
   formatLocationResponse,
   formatTimeResponse,
   formatRootPage,
+  wantsJson,
 };

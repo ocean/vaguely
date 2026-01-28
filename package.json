@@ -1,0 +1,22 @@
+{
+  "name": "vaguely",
+  "version": "1.0.0",
+  "description": "A Cloudflare Worker for vague location and time data",
+  "main": "worker.js",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev"
+  },
+  "keywords": [
+    "cloudflare",
+    "worker",
+    "geolocation"
+  ],
+  "author": "Drew Robinson <4443+ocean@users.noreply.github.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}

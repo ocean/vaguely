@@ -9,7 +9,3 @@ cwd = "."
 [[routes]]
 pattern = "vaguely.drewr.dev"
 custom_domain = true
-
-[env.production]
-route = "https://vaguely.drewr.dev/*"
-zone_name = "drewr.dev"

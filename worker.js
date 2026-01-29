@@ -48,6 +48,24 @@ const QUALIFIERS = [
 
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
+function getCorsHeaders(request) {
+  // Allow: https://placemake.fly.dev, https://placemake.drewr.dev, https://placemake.world, http://localhost:4000
+  const allowedOriginPattern = /^(https:\/\/placemake\.(fly\.dev|drewr\.dev|world)|http:\/\/localhost:4000)$/i;
+  const origin = request.headers.get("origin");
+  
+  const headers = {
+    "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Max-Age": "86400",
+  };
+  
+  if (origin && allowedOriginPattern.test(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+  }
+  
+  return headers;
+}
+
 function getUtcOffset(timezone) {
   if (!timezone) return "UTC+??:??";
   try {
@@ -89,8 +107,8 @@ function getLocationData(request) {
     country: safeValue(country),
     region: safeValue(region),
     city: safeValue(city),
-    latitude: safeValue(latitude),
-    longitude: safeValue(longitude),
+    latitude: latitude ? parseFloat(latitude) : null,
+    longitude: longitude ? parseFloat(longitude) : null,
     postcode: safeValue(postalCode),
     colo: safeValue(colo),
   };
@@ -235,18 +253,34 @@ const ROUTES = {
 export default {
   async fetch(request) {
     const { pathname } = new URL(request.url);
+    const corsHeaders = getCorsHeaders(request);
+    
+    // Handle OPTIONS requests for CORS preflight
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        status: 204,
+        headers: corsHeaders,
+      });
+    }
+    
     const route = ROUTES[pathname] || ROUTES[pathname === "" ? "/" : null];
 
     if (!route) {
       return new Response("404 - Unknown path. Try /where or /when", {
         status: 404,
-        headers: { "content-type": "text/plain;charset=UTF-8" },
+        headers: { 
+          "content-type": "text/plain;charset=UTF-8",
+          ...corsHeaders,
+        },
       });
     }
 
     const { body, type } = route(request);
     return new Response(body, {
-      headers: { "content-type": `${type};charset=UTF-8` },
+      headers: { 
+        "content-type": `${type};charset=UTF-8`,
+        ...corsHeaders,
+      },
     });
   },
 };
@@ -254,6 +288,7 @@ export default {
 // Export functions for testing.
 export {
   pick,
+  getCorsHeaders,
   getUtcOffset,
   formatResponse,
   getLocationData,
